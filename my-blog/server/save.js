@@ -1,4 +1,5 @@
 import express from 'express'
+import cors from 'cors'
 import fs from 'fs'
 import path from 'path'
 import { exec } from 'child_process'
@@ -8,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const app = express()
+app.use(cors()) 
 app.use(express.json({ limit: '5mb' }))
 
 const ARTICLES_DIR = path.join(__dirname, '../public/articles')
