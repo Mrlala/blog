@@ -1,14 +1,14 @@
 import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
-import ArticleList from './ArticleList.vue'
-import ArticlePage from './ArticlePage.vue'
-import Write from './Write.vue' // ✅ 你写的新页面组件
+import ArticleList from './pages/ArticleList.vue'
+import ArticlePage from './pages/ArticlePage.vue'
+import Write from './pages/Write.vue'
 
 const routes = [
   { path: '/', component: ArticleList },
   { path: '/article/:name', component: ArticlePage },
-  { path: '/write', component: Write } // ✅ 添加这一行！
+  { path: '/write', component: Write }
 ]
 
 const router = createRouter({
