@@ -1,33 +1,49 @@
 <template>
-  <div class="theme-switcher">
-    <button @click="toggle" :class="{dark: isDark}">{{ isDark ? '🌙 暗色' : '☀️ 浅色' }}</button>
-  </div>
+  <n-popselect
+    v-model:value="theme"
+    :options="themeOptions"
+    size="small"
+    trigger-props="{ placement: 'bottom-end' }"
+    class="theme-switcher"
+    @update:value="handleThemeChange"
+  >
+    <template #default>
+      <slot>
+        <n-button size="small" secondary>
+          {{ themeLabel }}
+        </n-button>
+      </slot>
+    </template>
+  </n-popselect>
 </template>
+
 <script setup>
-import { ref, onMounted } from 'vue'
-const isDark = ref(false)
-function toggle() {
-  isDark.value = !isDark.value
-  document.body.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
+import { ref, computed, watch } from 'vue'
+import { NButton, NPopselect } from 'naive-ui'
+import themeOverrides, { themeNames } from '@/theme/theme-overrides.js'
+
+const theme = ref(localStorage.getItem('naive-theme') || 'light')
+
+const themeOptions = computed(() =>
+  Object.keys(themeOverrides).map(key => ({
+    label: themeNames[key] || key,
+    value: key
+  }))
+)
+const themeLabel = computed(
+  () => themeOptions.value.find(t => t.value === theme.value)?.label ?? ''
+)
+
+function handleThemeChange(val) {
+  theme.value = val
+  localStorage.setItem('naive-theme', val)
+  window.dispatchEvent(new CustomEvent('naive-theme-change', { detail: val }))
 }
-onMounted(() => {
-  // 恢复主题
-  isDark.value = document.body.getAttribute('data-theme') === 'dark'
-})
 </script>
-<style>
-.theme-switcher button {
-  font-size: 1.09em;
-  background: #fff;
-  color: #4754be;
-  border-radius: 7px;
-  border: 1.5px solid #eee;
-  padding: 0.35em 1.3em;
-  cursor: pointer;
-}
-.theme-switcher button.dark {
-  background: #23272e;
-  color: #fff;
-  border-color: #646cff;
+
+<style scoped>
+.theme-switcher {
+  min-width: 100px;
+  flex-shrink: 0;
 }
 </style>

@@ -1,107 +1,28 @@
-<template>
-  <div class="article-list-page">
-    <!-- 写新文章按钮 -->
-    <router-link to="/write">
-      <button class="write-btn">写新文章</button>
-    </router-link>
-    <h1>文章列表</h1>
-
-    <!-- 搜索框 -->
-    <div class="search-bar">
-      <input
-        v-model="keyword"
-        placeholder="搜索标题或摘要"
-        class="search-input"
-      />
-    </div>
-
-    <!-- 标签筛选区域 -->
-    <div class="filter-bar" v-if="allTags.length">
-      <span>标签筛选：</span>
-      <span
-        v-for="t in allTags"
-        :key="t"
-        class="tag-chip"
-        :class="{ active: t === selectedTag }"
-        @click="selectTag(t)"
-      >{{ t }}</span>
-      <span v-if="selectedTag" class="tag-clear" @click="clearTag">[清除筛选]</span>
-    </div>
-
-    <div v-if="loading">加载中...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else>
-      <div v-if="filteredArticles.length === 0" class="no-article">暂无匹配文章</div>
-      <div class="article-list">
-        <!-- 遍历文章列表，渲染每个卡片 -->
-        <div
-          class="article-card"
-          v-for="a in filteredArticles"
-          :key="a.file"
-        >
-          <!-- 封面图 -->
-          <img v-if="a.cover" class="cover" :src="a.cover" alt="cover" @click.stop="goTo(a.file)" />
-          <!-- 文章主要信息 -->
-          <div class="meta" @click="goTo(a.file)">
-            <div class="title">{{ a.title }}</div>
-            <div class="date">{{ a.date }}</div>
-            <div class="summary">{{ a.summary }}</div>
-            <!-- 文章标签 -->
-            <div class="tags">
-              <span
-                v-for="t in a.tags"
-                :key="t"
-                class="tag-chip"
-                @click.stop="selectTag(t)"
-              >{{ t }}</span>
-            </div>
-          </div>
-          <!-- 编辑/删除按钮 -->
-          <button class="edit-btn" @click.stop="editArticle(a.file)">编辑</button>
-          <button class="delete-btn" @click.stop="confirmDelete(a.file)">删除</button>
-        </div>
-      </div>
-    </div>
-    <!-- 删除确认弹窗 -->
-    <div v-if="showConfirm" class="confirm-modal">
-      <div class="confirm-box">
-        <div>确定要删除这篇文章吗？</div>
-        <button @click="doDelete">确定</button>
-        <button @click="showConfirm = false">取消</button>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import ArticleCard from '@/components/blog/ArticleCard.vue'
+import SearchBar from '@/components/blog/SearchBar.vue'
+import TagFilterBar from '@/components/blog/TagFilterBar.vue'
+import ArticleActionButtons from '@/components/blog/ArticleActionButtons.vue'
 
-// 文章数据
 const articles = ref([])
-// 加载/错误状态
 const loading = ref(true)
 const error = ref('')
-// 搜索关键词
 const keyword = ref('')
-// 标签筛选相关
 const selectedTag = ref('')
-// 路由
+const defaultCover = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80'
 const router = useRouter()
 
-// 删除弹窗与当前要删除文件
-const showConfirm = ref(false)
-const fileToDelete = ref('')
-
-// 首次加载文章列表
 onMounted(fetchList)
 
-// 获取文章索引（index.json）
 async function fetchList() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch('/articles/index.json')
+    // 改为后端API
+    const res = await fetch(`${API_BASE_URL}/api/articles`)
     if (!res.ok) throw new Error('获取文章列表失败')
     articles.value = await res.json()
   } catch (e) {
@@ -110,21 +31,17 @@ async function fetchList() {
   loading.value = false
 }
 
-// 所有标签去重集合
 const allTags = computed(() => {
   const set = new Set()
   articles.value.forEach(a => (a.tags || []).forEach(t => set.add(t)))
   return Array.from(set)
 })
 
-// 筛选后的文章（按标签和关键字）
 const filteredArticles = computed(() => {
   let arr = articles.value
-  // 标签优先筛选
   if (selectedTag.value) {
     arr = arr.filter(a => a.tags && a.tags.includes(selectedTag.value))
   }
-  // 关键词筛选
   if (keyword.value.trim()) {
     const key = keyword.value.trim().toLowerCase()
     arr = arr.filter(a =>
@@ -135,215 +52,202 @@ const filteredArticles = computed(() => {
   return arr
 })
 
-// 跳转到文章详情页
-const goTo = (file) => {
-  router.push(`/article/${file}`)
+function goDetail(id) {
+  router.push({ path: '/article/' + id })
 }
 
-// 跳转到写作页，编辑模式
-const editArticle = (file) => {
-  router.push({ path: '/write', query: { edit: file } })
+function onEdit(article) {
+  router.push({ path: '/write', query: { edit: article.id } })
 }
 
-// 标签筛选相关方法
-function selectTag(tag) {
-  selectedTag.value = tag
-}
-function clearTag() {
-  selectedTag.value = ''
-}
-
-// 删除相关逻辑
-const confirmDelete = (file) => {
-  fileToDelete.value = file
-  showConfirm.value = true
-}
-const doDelete = async () => {
-  if (!fileToDelete.value) return
-  showConfirm.value = false
+async function onDelete(article) {
   try {
-    const res = await fetch('http://localhost:3001/api/article/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: fileToDelete.value })
+    const res = await fetch(`${API_BASE_URL}/api/articles/${article.id}`, {
+      method: 'DELETE'
     })
     const data = await res.json()
     if (data.success) {
-      await fetchList()
+      alert('删除成功')
+      fetchList()
     } else {
       alert('删除失败')
     }
-  } catch (e) {
+  } catch {
     alert('请求异常')
   }
 }
 </script>
 
-<style>
-.article-list-page {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 2em 0;
-  text-align: left;
+<template>
+  <div class="article-list-bg">
+    <div class="article-list-card">
+      <div class="list-header">
+        <h2 class="list-title">文章列表</h2>
+        <router-link to="/write">
+          <button class="write-btn">写新文章</button>
+        </router-link>
+      </div>
+
+      <SearchBar v-model="keyword" placeholder="搜索标题或摘要" input-class="search-input" />
+      <TagFilterBar :tags="allTags" v-model="selectedTag" tag-class="tag-chip" />
+
+      <div v-if="loading" class="loading">加载中...</div>
+      <div v-else-if="error" class="error">{{ error }}</div>
+      <div v-else>
+        <div v-if="filteredArticles.length === 0" class="no-article">暂无匹配文章</div>
+        <div class="article-list">
+          <ArticleCard
+            v-for="a in filteredArticles"
+            :key="a.id"
+            :title="a.title"
+            :abstract="a.summary"
+            :cover="a.cover"
+            :tags="a.tags"
+            :time="a.created_at"
+            :default-cover="defaultCover"
+            @click="goDetail(a.id)"
+          >
+            <template #actions>
+              <ArticleActionButtons
+                @edit="() => onEdit(a)"
+                @delete="() => onDelete(a)"
+              />
+            </template>
+          </ArticleCard>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+
+
+
+<style scoped>
+.article-list-bg {
+  min-height: 100vh;
+  background: var(--body-color, #f8fafb);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
+
+.article-list-card {
+  width: 100%;
+  max-width: 720px;
+  background: var(--card-color, #fff);
+  color: var(--text-color-base, #1e293b);
+  border-radius: var(--card-radius, 1.4em);
+  box-shadow: var(--card-shadow, 0 4px 18px #60a5fa13);
+  margin: 3.5em auto 2.5em auto;
+  padding: 2.6em 1.6em 2.4em 1.6em;
+  min-height: 75vh;
+  transition: background 0.3s, color 0.3s;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.2em;
+}
+
+.list-title {
+  font-size: 1.7em;
+  font-weight: bold;
+  color: var(--primary-color, #2563eb);
+  letter-spacing: 0.01em;
+}
+
 .write-btn {
-  margin-bottom: 2em;
-  padding: 0.8em 2em;
-  font-size: 1.2em;
-  background: #646cff;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
+  background: var(--btn-bg, linear-gradient(90deg, #2563eb, #60a5fa));
+  color: var(--btn-text, #fff);
+  box-shadow: var(--btn-shadow, 0 4px 18px #60a5fa13);
+  border-radius: var(--btn-radius, 1.3em);
+  border: var(--btn-border, none);
+  font-size: var(--btn-font-size, 1.13em);
+  padding: var(--btn-padding, 0.48em 1.6em);
+  transition: background 0.2s, transform 0.15s;
   cursor: pointer;
-  transition: background 0.2s;
 }
+
 .write-btn:hover {
-  background: #535bf2;
+  background: var(--btn-hover-bg, linear-gradient(90deg, #1e40af, #3b82f6));
+  color: var(--btn-hover-text, #fff);
+  transform: scale(1.03);
 }
-.search-bar {
-  margin-bottom: 1.5em;
-}
+
 .search-input {
-  width: 60%;
-  padding: 0.8em 1.5em;
-  border-radius: 8px;
-  font-size: 1.05em;
-  border: 1px solid #ccc;
+  background: var(--input-bg, #fff);
+  color: var(--input-text, #274b8b);
+  border: 1.5px solid var(--input-border, #c7d6ea);
+  border-radius: var(--input-radius, 1.2em);
+  padding: 0.55em 1.4em;
+  font-size: 1.07em;
+  outline: none;
+  transition: border 0.15s, background 0.2s;
 }
-.filter-bar {
-  margin-bottom: 1em;
-  font-size: 1.06em;
+
+.search-input::placeholder {
+  color: var(--input-placeholder, #b1b7c7);
+  opacity: 1;
 }
+
 .tag-chip {
-  display: inline-block;
-  background: #e9edff;
-  color: #4754be;
-  border-radius: 6px;
-  padding: 0.1em 0.7em 0.1em 0.5em;
-  margin: 0 0.5em 0.2em 0;
-  font-size: 0.99em;
+  background: var(--tag-bg, #e6f0ff);
+  color: var(--tag-text, #2360a2);
+  border-radius: var(--tag-radius, 1em);
+  padding: var(--tag-padding, 0.18em 1.1em);
+  font-size: 0.98em;
+  margin-right: 0.4em;
+  margin-bottom: 0.25em;
+  border: none;
   cursor: pointer;
+  transition: background 0.22s, color 0.22s;
+  outline: none;
 }
-.tag-chip.active {
-  background: #4754be;
-  color: #fff;
+
+.tag-chip.active,
+.tag-chip:active,
+.tag-chip.selected {
+  background: var(--tag-active-bg, #2563eb);
+  color: var(--tag-active-text, #fff);
 }
-.tag-clear {
-  color: #e93f3f;
-  margin-left: 1em;
-  cursor: pointer;
+
+.loading {
+  text-align: center;
+  color: var(--loading-color, #89a0c5);
+  padding: 2em 0;
 }
-.tags {
-  margin-top: 0.3em;
+
+.error {
+  text-align: center;
+  color: var(--error-color, #ef4444);
+  padding: 2em 0;
 }
+
+.no-article {
+  text-align: center;
+  color: var(--no-article-color, #c5d0e4);
+  font-size: 1.09em;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  margin: 2.5em 0 3em 0;
+}
+
 .article-list {
   display: flex;
   flex-direction: column;
-  gap: 2em;
+  gap: 1.4em;
 }
-.article-card {
-  display: flex;
-  align-items: flex-start;
-  background: #f6f6f6;
-  border-radius: 12px;
-  padding: 1.5em 1em;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
-  cursor: pointer;
-  transition: box-shadow 0.2s;
+
+.article-list-card::-webkit-scrollbar {
+  width: 8px;
+  background: var(--scrollbar-color, #dde6ef);
 }
-.article-card:hover {
-  box-shadow: 0 4px 24px rgba(100, 108, 255, 0.10);
-  background: #e9edff;
-}
-.cover {
-  width: 120px;
-  height: 90px;
-  object-fit: cover;
-  border-radius: 8px;
-  margin-right: 1.5em;
-  flex-shrink: 0;
-  background: #ddd;
-}
-.meta {
-  flex: 1;
-}
-.title {
-  font-size: 1.3em;
-  font-weight: bold;
-  margin-bottom: 0.5em;
-}
-.date {
-  color: #999;
-  font-size: 0.98em;
-  margin-bottom: 0.6em;
-}
-.summary {
-  color: #555;
-  font-size: 1em;
-}
-.edit-btn {
-  margin-left: 1em;
-  background: #ffb300;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 0.4em 1.1em;
-  cursor: pointer;
-  font-size: 1em;
-  transition: background 0.2s;
-}
-.edit-btn:hover {
-  background: #ea9800;
-}
-.delete-btn {
-  margin-left: 1.2em;
-  background: #ff4444;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 0.4em 1.1em;
-  cursor: pointer;
-  font-size: 1em;
-  transition: background 0.2s;
-}
-.delete-btn:hover {
-  background: #d61f1f;
-}
-.confirm-modal {
-  position: fixed;
-  left: 0; right: 0; top: 0; bottom: 0;
-  background: rgba(30,30,30,0.18);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 99;
-}
-.confirm-box {
-  background: #fff;
-  padding: 2em 2.5em;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.13);
-  text-align: center;
-}
-.confirm-box button {
-  margin: 1.5em 0.8em 0 0.8em;
-  padding: 0.5em 1.5em;
-  border-radius: 8px;
-  border: none;
-  font-size: 1em;
-  background: #646cff;
-  color: #fff;
-  cursor: pointer;
-}
-.confirm-box button:last-child {
-  background: #bbb;
-  color: #444;
-}
-.no-article {
-  color: #999;
-  margin-top: 3em;
-  text-align: center;
-}
-.error {
-  color: red;
-  margin: 2em 0;
+
+.article-list-card::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb, #bcd2e6);
+  border-radius: 4px;
 }
 </style>

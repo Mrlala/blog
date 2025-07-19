@@ -1,106 +1,163 @@
 <template>
-  <div class="article-page">
-    <button class="back-btn" @click="$router.back()">返回上一页</button>
-    <button class="edit-btn" @click="editArticle">编辑</button>
-
-    <div v-if="loading">加载中...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else>
-      <h1>{{ articleTitle }}</h1>
-      <div class="date">{{ articleDate }}</div>
-      <!-- 文章内容Markdown渲染 -->
-      <div class="markdown-body" v-html="htmlContent"></div>
+  <div class="article-page-bg">
+    <div class="article-page">
+      <div class="article-actions">
+        <BackButton @click="$router.back()" />
+        <EditButton @click="editArticle" />
+      </div>
+      <ErrorMessage v-if="error" :message="error" />
+      <ArticleSkeleton v-else-if="loading" />
+      <template v-else>
+        <div class="article-md-preview">
+          <ArticleTitle :title="articleTitle" />
+          <ArticleDate :date="articleDate" />
+          <MdPreview :modelValue="markdownContent" :theme="theme" />
+        </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { marked } from 'marked'
+import { ref, onMounted, onBeforeUnmount, inject } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import BackButton from '@/components/article/BackButton.vue'
+import EditButton from '@/components/article/EditButton.vue'
+import ErrorMessage from '@/components/article/ErrorMessage.vue'
+import ArticleSkeleton from '@/components/article/ArticleSkeleton.vue'
+import ArticleTitle from '@/components/article/ArticleContent/ArticleTitle.vue'
+import ArticleDate from '@/components/article/ArticleContent/ArticleDate.vue'
+import { MdPreview } from 'md-editor-v3'
+import 'md-editor-v3/lib/preview.css'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 const router = useRouter()
-
 const route = useRoute()
 const loading = ref(true)
 const error = ref('')
-const htmlContent = ref('')
+const markdownContent = ref('')
 const articleTitle = ref('')
 const articleDate = ref('')
+
+// 主题变量，默认从 localStorage 读取
+const theme = ref(localStorage.getItem('naive-theme') || 'light')
+
+function onThemeChange(event) {
+  const newTheme = event.detail
+  if (newTheme === 'light' || newTheme === 'dark') {
+    theme.value = newTheme
+  }
+}
 
 const editArticle = () => {
   router.push({ path: '/write', query: { edit: route.params.name } })
 }
 
+onBeforeUnmount(() => {
+  window.removeEventListener('naive-theme-change', onThemeChange)
+})
+
 onMounted(async () => {
-  const name = route.params.name
+  window.addEventListener('naive-theme-change', onThemeChange)
+  const id = route.params.id  // 路由参数id是文章的标识
   loading.value = true
   error.value = ''
   try {
-    // 获取文章内容
-    const res = await fetch(`/articles/${name}`)
+    const res = await fetch(`${API_BASE_URL}/api/articles/${id}`)
     if (!res.ok) throw new Error('找不到文章')
-    const content = await res.text()
-    // 提取标题（假设第一行为# 标题），提取日期（从文件名或md内容）
-    const lines = content.split('\n')
-    if (lines[0].startsWith('# ')) {
-      articleTitle.value = lines[0].replace(/^# /, '').trim()
-    } else {
-      articleTitle.value = name
-    }
-    // 假设文件名为2025-07-17-xxx.md
-    const dateMatch = name.match(/^(\d{4}-\d{2}-\d{2})/)
-    articleDate.value = dateMatch ? dateMatch[1] : ''
-    // 渲染Markdown
-    htmlContent.value = marked.parse(content)
+    const data = await res.json()
+    articleTitle.value = data.title
+    articleDate.value = data.created_at ? data.created_at.slice(0, 10) : ''
+    markdownContent.value = data.content
   } catch (e) {
     error.value = e.message
   }
   loading.value = false
 })
+
+
 </script>
 
-<style>
+<style scoped>
+:deep(.md-editor-preview-wrapper),
+:deep(.md-editor-preview),
+:deep(.md-editor-content) {
+  background: var(--article-bg, transparent) !important;
+}
+
+.article-page-bg {
+  min-height: 100vh;
+  background: var(--body-color, #f8fafb);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  transition: background 0.35s;
+}
+
 .article-page {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2em 0;
-  text-align: left;
+  width: 100%;
+  max-width: 980px;
+  margin: 2.5em auto 2em;
+  padding: 2.6em 0 3.2em 0;
+  background: var(--article-bg, #fff);
+  color: var(--article-text-color, #232a3a);
+  border-radius: var(--article-radius, 2em);
+  box-shadow: var(--article-shadow, 0 8px 32px rgba(60, 60, 110, 0.08));
+  min-height: 66vh;
+  transition: background 0.35s, color 0.35s;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
-.back-btn {
-  margin-bottom: 2em;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  background: #eee;
-  color: #333;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
+
+.article-actions {
+  display: flex;
+  gap: 1em;
+  margin-bottom: 1.3em;
+  align-items: center;
+  padding: 0 2.2em;
 }
-.markdown-body {
-  font-size: 1.08em;
-  line-height: 1.7;
-  padding: 1em 0;
-  word-break: break-all;
+
+.article-md-preview {
+  flex: 1 1 auto;
+  width: 100%;
+  padding: 0 2.2em;
+  margin-top: 2em;
+  box-sizing: border-box;
 }
-.markdown-body pre {
-  background: #23272e;
-  color: #eee;
-  padding: 1em;
-  border-radius: 8px;
-  overflow-x: auto;
+
+.md-editor-preview {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0;
+  font-size: 1.1em;
+  line-height: 1.72;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  word-break: break-word;
 }
-.markdown-body code {
-  background: #f2f2f2;
-  color: #c7254e;
-  padding: 0.15em 0.3em;
-  border-radius: 4px;
+
+@media (max-width: 1024px) {
+  .article-page {
+    max-width: 100%;
+    border-radius: 0;
+  }
+
+  .article-md-preview,
+  .article-actions {
+    padding: 0 1em;
+  }
 }
-.date {
-  color: #888;
-  font-size: 0.98em;
-  margin-bottom: 1.2em;
-}
-.error {
-  color: red;
+
+@media (max-width: 700px) {
+  .article-md-preview,
+  .article-actions {
+    padding: 0 0.3em;
+  }
+
+  .article-page {
+    padding: 1em 0 2em 0;
+  }
 }
 </style>
