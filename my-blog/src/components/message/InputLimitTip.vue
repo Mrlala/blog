@@ -4,6 +4,7 @@
   </div>
 </template>
 <script setup>
+import { computed } from 'vue'
 const props = defineProps({
   value: String,      // 当前内容
   limit: Number,      // 最大长度
