@@ -5,9 +5,12 @@ import ArticleList from './pages/ArticleList.vue'
 import ArticlePage from './pages/ArticlePage.vue'
 import Write from './pages/Write.vue'
 
+import naive from 'naive-ui'
+import themeOverrides from './theme/theme-overrides.js' // 你存 theme-overrides.js 的路径
+
 const routes = [
   { path: '/', component: ArticleList },
-  { path: '/article/:name', component: ArticlePage },
+  { path: '/article/:id', component: ArticlePage },
   { path: '/write', component: Write }
 ]
 
@@ -16,4 +19,8 @@ const router = createRouter({
   routes
 })
 
-createApp(App).use(router).mount('#app')
+const app = createApp(App)
+
+app.use(router)
+app.use(naive)
+app.mount('#app')
