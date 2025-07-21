@@ -188,6 +188,37 @@ async function onUploadImage(files, callback) {
   height: auto;
 }
 
+/* 编辑状态背景 */
+:deep(.md-editor) {
+  background: var(--article-bg, #fff) !important;
+}
+
+/* 预览状态背景 */
+
+:deep(.md-editor-preview-wrapper),
+:deep(.md-editor-preview),
+:deep(.md-editor-content) {
+  background: var(--input-bg, #fff) !important;
+}
+
+:deep(.md-editor-toolbar-wrapper) {
+  background: var(--input-bg, #fff) !important;
+  border: 1px solid var(--input-border);
+
+}
+
+:deep(.md-editor) {
+  border: 1px solid var(--input-border);
+  --md-color: #8594ac;
+  --md-bk-color: var(--input-bg, #fff);
+  --md-scrollbar-bg-color: #425070
+}
+
+:deep(.md-editor-footer) {
+  border: 1px solid var(--input-border);
+  background: var(--input-bg, #fff) !important;
+}
+
 .mb-block {
   margin-bottom: 1.18em !important;
 }

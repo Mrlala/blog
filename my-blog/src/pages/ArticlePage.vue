@@ -2,8 +2,8 @@
   <div class="article-page-bg">
     <div class="article-page">
       <div class="article-actions">
-        <BackButton @click="$router.back()" />
-        <EditButton @click="editArticle" />
+        <!-- 只有登录后才显示编辑按钮 -->
+        <EditButton v-if="isLoggedIn()" @click="editArticle" />
       </div>
       <ErrorMessage v-if="error" :message="error" />
       <ArticleSkeleton v-else-if="loading" />
@@ -19,9 +19,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, inject } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import BackButton from '@/components/article/BackButton.vue'
 import EditButton from '@/components/article/EditButton.vue'
 import ErrorMessage from '@/components/article/ErrorMessage.vue'
 import ArticleSkeleton from '@/components/article/ArticleSkeleton.vue'
@@ -29,6 +28,9 @@ import ArticleTitle from '@/components/article/ArticleContent/ArticleTitle.vue'
 import ArticleDate from '@/components/article/ArticleContent/ArticleDate.vue'
 import { MdPreview } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
+// ===== 新增权限控制工具 =====
+import { isLoggedIn } from '@/utils/auth'
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 const router = useRouter()
 const route = useRoute()
@@ -49,7 +51,7 @@ function onThemeChange(event) {
 }
 
 const editArticle = () => {
-  router.push({ path: '/write', query: { edit: route.params.name } })
+  router.push({ path: '/write', query: { edit: route.params.id } })
 }
 
 onBeforeUnmount(() => {
@@ -58,7 +60,7 @@ onBeforeUnmount(() => {
 
 onMounted(async () => {
   window.addEventListener('naive-theme-change', onThemeChange)
-  const id = route.params.id  // 路由参数id是文章的标识
+  const id = route.params.id
   loading.value = true
   error.value = ''
   try {
@@ -73,8 +75,6 @@ onMounted(async () => {
   }
   loading.value = false
 })
-
-
 </script>
 
 <style scoped>
@@ -122,7 +122,7 @@ onMounted(async () => {
   flex: 1 1 auto;
   width: 100%;
   padding: 0 2.2em;
-  margin-top: 2em;
+
   box-sizing: border-box;
 }
 
