@@ -1,11 +1,13 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watchEffect } from 'vue'
+import { useRoute } from 'vue-router'
 import { NConfigProvider, darkTheme } from 'naive-ui'
-import themeOverrides, { themeNames } from '@/theme/theme-overrides.js'
+import themeOverrides from '@/theme/theme-overrides.js'
 import { setThemeCssVars } from '@/utils/setThemeCssVars'
 import Header from '@/components/layout/Header.vue'
 import Footer from '@/components/layout/Footer.vue'
 
+const route = useRoute()
 const currentTheme = ref(localStorage.getItem('naive-theme') || 'light')
 function handleThemeChange(e) {
   currentTheme.value = e.detail
@@ -20,8 +22,6 @@ const naiveTheme = computed(() =>
 const themeOverride = computed(() =>
   themeOverrides[currentTheme.value] || themeOverrides['light']
 )
-
-// 自动注入所有主题相关 css 变量！
 watchEffect(() => {
   setThemeCssVars(themeOverride.value.common)
 })
@@ -29,8 +29,26 @@ watchEffect(() => {
 
 <template>
   <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverride">
-    <Header />
-    <router-view />
-    <Footer />
+    <div class="main-layout">
+      <Header v-if="route.path !== '/login'" />
+      <div class="main-content">
+        <router-view />
+      </div>
+      <Footer v-if="route.path !== '/login'" />
+    </div>
   </n-config-provider>
 </template>
+
+<style scoped>
+.main-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--body-color, #f8fafb);
+}
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+</style>

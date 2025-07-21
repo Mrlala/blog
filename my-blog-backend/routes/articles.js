@@ -1,5 +1,6 @@
 import express from 'express'
 import pool from '../db.js'
+import { authMiddleware } from '../auth.js'
 
 const router = express.Router()
 
@@ -41,11 +42,10 @@ router.get('/:id', async (req, res) => {
   }
 })
 
-// 新增文章
-router.post('/', async (req, res) => {
+// 新增文章（需要登录）
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const { title, summary, content, tags, cover } = req.body
-    // tags 要确保为数组
     const safeTags = Array.isArray(tags) ? tags : []
     const result = await pool.query(
       'INSERT INTO articles (title, summary, content, tags, cover) VALUES ($1, $2, $3, $4, $5) RETURNING *',
@@ -57,8 +57,8 @@ router.post('/', async (req, res) => {
   }
 })
 
-// 编辑文章
-router.put('/:id', async (req, res) => {
+// 编辑文章（需要登录）
+router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params
     const { title, summary, content, tags, cover } = req.body
@@ -76,8 +76,8 @@ router.put('/:id', async (req, res) => {
   }
 })
 
-// 删除文章
-router.delete('/:id', async (req, res) => {
+// 删除文章（需要登录）
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params
     await pool.query('DELETE FROM articles WHERE id=$1', [id])

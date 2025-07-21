@@ -152,6 +152,10 @@ export default {
             markdownPreBg: '#23272e',
             markdownPreText: '#eee',
             errorColor: '#ef4444',
+
+            coverThumbActiveBg: '#eef7ff',          // 工具卡片hover/active的背景色
+            coverThumbActiveShadow: '0 4px 32px #2563eb12', // 工具卡片hover/active的阴影
+            cardHoverBorder: '#60a5fa',             // 工具卡片hover/active的边框色
         }
     },
     dark: {
@@ -302,6 +306,10 @@ export default {
             markdownPreBg: '#20242c',
             markdownPreText: '#e7efff',
             errorColor: '#f67777',
+
+            coverThumbActiveBg: '#232a3c',
+            coverThumbActiveShadow: '0 4px 32px #5c9dff18',
+            cardHoverBorder: '#3c79c6',
         }
     }
 }

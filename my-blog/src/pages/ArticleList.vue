@@ -6,6 +6,8 @@ import ArticleCard from '@/components/blog/ArticleCard.vue'
 import SearchBar from '@/components/blog/SearchBar.vue'
 import TagFilterBar from '@/components/blog/TagFilterBar.vue'
 import ArticleActionButtons from '@/components/blog/ArticleActionButtons.vue'
+import { isLoggedIn } from '@/utils/auth'
+import { apiFetch } from '@/utils/request'
 
 const articles = ref([])
 const loading = ref(true)
@@ -21,7 +23,6 @@ async function fetchList() {
   loading.value = true
   error.value = ''
   try {
-    // 改为后端API
     const res = await fetch(`${API_BASE_URL}/api/articles`)
     if (!res.ok) throw new Error('获取文章列表失败')
     articles.value = await res.json()
@@ -62,7 +63,7 @@ function onEdit(article) {
 
 async function onDelete(article) {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/articles/${article.id}`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/articles/${article.id}`, {
       method: 'DELETE'
     })
     const data = await res.json()
@@ -70,7 +71,7 @@ async function onDelete(article) {
       alert('删除成功')
       fetchList()
     } else {
-      alert('删除失败')
+      alert(data.error || '删除失败')
     }
   } catch {
     alert('请求异常')
@@ -83,7 +84,8 @@ async function onDelete(article) {
     <div class="article-list-card">
       <div class="list-header">
         <h2 class="list-title">文章列表</h2>
-        <router-link to="/write">
+        <!-- 只有登录后才显示“写新文章”按钮 -->
+        <router-link v-if="isLoggedIn()" to="/write">
           <button class="write-btn">写新文章</button>
         </router-link>
       </div>
@@ -108,7 +110,9 @@ async function onDelete(article) {
             @click="goDetail(a.id)"
           >
             <template #actions>
+              <!-- 只有登录后才显示编辑、删除按钮 -->
               <ArticleActionButtons
+                v-if="isLoggedIn()"
                 @edit="() => onEdit(a)"
                 @delete="() => onDelete(a)"
               />
