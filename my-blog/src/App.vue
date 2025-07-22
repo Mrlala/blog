@@ -29,15 +29,18 @@ watchEffect(() => {
 
 <template>
   <n-config-provider :theme="naiveTheme" :theme-overrides="themeOverride">
-    <div class="main-layout">
-      <Header v-if="route.path !== '/login'" />
-      <div class="main-content">
-        <router-view />
+    <n-message-provider>
+      <div class="main-layout">
+        <Header v-if="route.path !== '/login'" />
+        <div class="main-content">
+          <router-view />
+        </div>
+        <Footer v-if="route.path !== '/login'" />
       </div>
-      <Footer v-if="route.path !== '/login'" />
-    </div>
+    </n-message-provider>
   </n-config-provider>
 </template>
+
 
 <style scoped>
 .main-layout {

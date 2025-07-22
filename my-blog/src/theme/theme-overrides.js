@@ -156,6 +156,24 @@ export default {
             coverThumbActiveBg: '#eef7ff',          // 工具卡片hover/active的背景色
             coverThumbActiveShadow: '0 4px 32px #2563eb12', // 工具卡片hover/active的阴影
             cardHoverBorder: '#60a5fa',             // 工具卡片hover/active的边框色
+
+            // 在 light 和 dark 的 common 对象中都添加以下样式
+            paginationBg: '#fff', // 分页背景色
+            paginationText: '#1e293b', // 分页文字颜色
+            paginationActiveBg: '#2563eb', // 当前页背景色
+            paginationActiveText: '#fff', // 当前页文字颜色
+            paginationHoverBg: '#f1f5f9', // 悬停背景色
+            paginationBorder: '#e5eaf3', // 边框色
+            paginationDisabledText: '#94a3b8', // 禁用文字颜色
+
+            sidebarBg: '#f4f6fa',
+            sidebarBorder: '#e6e9f0',
+            sidebarText: '#2563eb',
+            sidebarActiveBg: '#e5efff',         // 当前激活项背景
+            sidebarActiveText: '#2563eb',       // 激活项文本色
+            sidebarHoverBg: '#e5f1ff',          // hover背景
+            sidebarHoverText: '#2563eb',        // hover文本色
+            sidebarTitleText: '#2563eb',        // 标题色
         }
     },
     dark: {
@@ -310,6 +328,24 @@ export default {
             coverThumbActiveBg: '#232a3c',
             coverThumbActiveShadow: '0 4px 32px #5c9dff18',
             cardHoverBorder: '#3c79c6',
+
+            paginationBg: '#212737', // 分页背景色（与卡片背景一致）
+            paginationText: '#a9b6d3', // 分页文字颜色（浅灰色）
+            paginationActiveBg: '#3b82f6', // 当前页背景色（蓝色）
+            paginationActiveText: '#fff', // 当前页文字颜色
+            paginationHoverBg: '#293247', // 悬停背景色（比背景稍亮）
+            paginationBorder: '#283041', // 边框色（与卡片边框一致）
+            paginationDisabledText: '#657395', // 禁用文字颜色（灰色）
+
+
+            sidebarBg: '#20273a',
+            sidebarBorder: '#243047',
+            sidebarText: '#5c9dff',
+            sidebarActiveBg: '#243c6c',
+            sidebarActiveText: '#5c9dff',
+            sidebarHoverBg: '#1d2639',
+            sidebarHoverText: '#5c9dff',
+            sidebarTitleText: '#5c9dff',
         }
     }
 }
