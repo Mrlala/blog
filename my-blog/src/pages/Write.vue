@@ -124,11 +124,16 @@ async function saveArticle() {
       url += '/' + articleId.value
       method = 'PUT'
     }
+    const token = localStorage.getItem('token')
     const res = await fetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (token || '')
+      },
       body: JSON.stringify(payload)
     })
+
     const data = await res.json()
     if (data.id) {
       clearDraft()
@@ -153,10 +158,15 @@ async function onUploadImage(files, callback) {
     Array.from(files).map(async (file) => {
       const formData = new FormData();
       formData.append('file', file);
+      const token = localStorage.getItem('token')
       const resp = await fetch(`${API_BASE_URL}/api/upload`, {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: {
+          'Authorization': 'Bearer ' + (token || '')
+        }
       });
+
       const data = await resp.json();
       return data.url;
     })

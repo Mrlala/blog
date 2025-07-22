@@ -1,6 +1,6 @@
 <script setup>
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ArticleCard from '@/components/blog/ArticleCard.vue'
 import SearchBar from '@/components/blog/SearchBar.vue'
@@ -8,8 +8,35 @@ import TagFilterBar from '@/components/blog/TagFilterBar.vue'
 import ArticleActionButtons from '@/components/blog/ArticleActionButtons.vue'
 import { isLoggedIn } from '@/utils/auth'
 import { apiFetch } from '@/utils/request'
+import CategoryTreeSidebar from '@/components/blog/CategoryTreeSidebar.vue'
+const categoryTree = ref([
+  {
+    id: '',
+    label: '全部'
+  },
+  {
+    id: 'tech',
+    label: '技术',
+    children: [
+      { id: 'frontend', label: '前端' },
+      { id: 'backend', label: '后端' }
+    ]
+  },
+  {
+    id: 'life',
+    label: '生活',
+    children: [
+      { id: 'reading', label: '读书' }
+    ]
+  }
+])
+const selectedCategory = ref('')
+
 
 const articles = ref([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(5)
 const loading = ref(true)
 const error = ref('')
 const keyword = ref('')
@@ -17,40 +44,49 @@ const selectedTag = ref('')
 const defaultCover = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80'
 const router = useRouter()
 
-onMounted(fetchList)
+onMounted(() => {
+  console.log('[onMounted] 页面初始化，当前页码：', page.value)
+  fetchList()
+})
+
+// 只要页码、筛选项变化就重新请求
+watch([page, pageSize, keyword, selectedTag], ([newPage, newPageSize, newKeyword, newTag], [oldPage, oldPageSize, oldKeyword, oldTag]) => {
+  console.log('[watch] page/pageSize/keyword/tag变化:', { newPage, newPageSize, newKeyword, newTag, oldPage, oldPageSize, oldKeyword, oldTag })
+  fetchList()
+})
 
 async function fetchList() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch(`${API_BASE_URL}/api/articles`)
+    const params = new URLSearchParams({
+      page: page.value,
+      pageSize: pageSize.value,
+    })
+    if (keyword.value.trim()) params.append('keyword', keyword.value.trim())
+    if (selectedTag.value) params.append('tag', selectedTag.value)
+    if (selectedCategory.value) params.append('category', selectedCategory.value)
+
+    const res = await fetch(`${API_BASE_URL}/api/articles?${params}`)
     if (!res.ok) throw new Error('获取文章列表失败')
-    articles.value = await res.json()
+    const data = await res.json()
+
+    articles.value = Array.isArray(data.list) ? data.list : []
+    total.value = data.total
   } catch (e) {
     error.value = e.message
+    console.error('[fetchList] 错误:', e)
   }
   loading.value = false
 }
 
 const allTags = computed(() => {
   const set = new Set()
-  articles.value.forEach(a => (a.tags || []).forEach(t => set.add(t)))
-  return Array.from(set)
-})
-
-const filteredArticles = computed(() => {
-  let arr = articles.value
-  if (selectedTag.value) {
-    arr = arr.filter(a => a.tags && a.tags.includes(selectedTag.value))
-  }
-  if (keyword.value.trim()) {
-    const key = keyword.value.trim().toLowerCase()
-    arr = arr.filter(a =>
-      (a.title && a.title.toLowerCase().includes(key)) ||
-      (a.summary && a.summary.toLowerCase().includes(key))
-    )
-  }
-  return arr
+    ; (articles.value || []).forEach(a => {
+      (a.tags || []).forEach(t => set.add(t))
+    })
+  const tagsArray = Array.from(set)
+  return tagsArray
 })
 
 function goDetail(id) {
@@ -63,9 +99,14 @@ function onEdit(article) {
 
 async function onDelete(article) {
   try {
-    const res = await apiFetch(`${API_BASE_URL}/api/articles/${article.id}`, {
-      method: 'DELETE'
+    const token = localStorage.getItem('token')
+    const res = await fetch(`${API_BASE_URL}/api/articles/${article.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': 'Bearer ' + (token || '')
+      }
     })
+
     const data = await res.json()
     if (data.success) {
       alert('删除成功')
@@ -73,51 +114,53 @@ async function onDelete(article) {
     } else {
       alert(data.error || '删除失败')
     }
-  } catch {
+  } catch (e) {
     alert('请求异常')
   }
 }
+function handlePageChange(newPage) {
+  page.value = newPage
+}
+
+// 分页事件
+function handleSizeChange(newSize) {
+  pageSize.value = newSize
+  page.value = 1 // 切换每页条数后回第一页
+}
+
 </script>
 
 <template>
-  <div class="article-list-bg">
-    <div class="article-list-card">
-      <div class="list-header">
-        <h2 class="list-title">文章列表</h2>
-        <!-- 只有登录后才显示“写新文章”按钮 -->
-        <router-link v-if="isLoggedIn()" to="/write">
-          <button class="write-btn">写新文章</button>
-        </router-link>
-      </div>
+  <div class="with-tree-sidebar">
+    <!-- 左侧树状可收缩分类栏 -->
+    <CategoryTreeSidebar :tree="categoryTree" v-model="selectedCategory" />
+    <div class="article-list-bg">
+      <div class="article-list-card">
+        <div class="list-header">
+          <h2 class="list-title">文章列表</h2>
+          <router-link v-if="isLoggedIn()" to="/write">
+            <button class="write-btn">写新文章</button>
+          </router-link>
+        </div>
+        <SearchBar v-model="keyword" placeholder="搜索标题或摘要" input-class="search-input" />
+        <TagFilterBar :tags="allTags" v-model="selectedTag" tag-class="tag-chip" />
 
-      <SearchBar v-model="keyword" placeholder="搜索标题或摘要" input-class="search-input" />
-      <TagFilterBar :tags="allTags" v-model="selectedTag" tag-class="tag-chip" />
-
-      <div v-if="loading" class="loading">加载中...</div>
-      <div v-else-if="error" class="error">{{ error }}</div>
-      <div v-else>
-        <div v-if="filteredArticles.length === 0" class="no-article">暂无匹配文章</div>
-        <div class="article-list">
-          <ArticleCard
-            v-for="a in filteredArticles"
-            :key="a.id"
-            :title="a.title"
-            :abstract="a.summary"
-            :cover="a.cover"
-            :tags="a.tags"
-            :time="a.created_at"
-            :default-cover="defaultCover"
-            @click="goDetail(a.id)"
-          >
-            <template #actions>
-              <!-- 只有登录后才显示编辑、删除按钮 -->
-              <ArticleActionButtons
-                v-if="isLoggedIn()"
-                @edit="() => onEdit(a)"
-                @delete="() => onDelete(a)"
-              />
-            </template>
-          </ArticleCard>
+        <div v-if="loading" class="loading">加载中...</div>
+        <div v-else-if="error" class="error">{{ error }}</div>
+        <div v-else>
+          <div v-if="articles.length === 0" class="no-article">暂无匹配文章</div>
+          <div class="article-list">
+            <ArticleCard v-for="a in articles" :key="a.id" :title="a.title" :abstract="a.summary" :cover="a.cover"
+              :tags="a.tags" :time="a.created_at" :default-cover="defaultCover" @click="goDetail(a.id)">
+              <template #actions>
+                <ArticleActionButtons v-if="isLoggedIn()" @edit="() => onEdit(a)" @delete="() => onDelete(a)" />
+              </template>
+            </ArticleCard>
+          </div>
+          <!-- 分页控件：只有一页时可隐藏 -->
+          <el-pagination v-if="total > pageSize" class="pagination" :current-page="page" :page-size="pageSize"
+            :total="total" :page-sizes="[10, 20, 50]" layout="sizes, prev, pager, next, jumper"
+            @current-change="handlePageChange" @size-change="handleSizeChange" />
         </div>
       </div>
     </div>
@@ -127,7 +170,71 @@ async function onDelete(article) {
 
 
 
+
 <style scoped>
+.pagination {
+  margin-top: 2em;
+}
+
+.pagination :deep(.el-pagination__total),
+.pagination :deep(.el-pagination__jump) {
+  color: var(--pagination-text, #1e293b);
+}
+
+.pagination :deep(.btn-prev),
+.pagination :deep(.btn-next),
+.pagination :deep(.el-pager li) {
+  background: var(--pagination-bg, #fff);
+  color: var(--pagination-text, #1e293b);
+  border: 1px solid var(--pagination-border, #e5eaf3);
+  margin: 0 4px;
+  min-width: 32px;
+  border-radius: 8px;
+}
+
+.pagination :deep(.el-pager li:hover) {
+  background: var(--pagination-hover-bg, #f1f5f9);
+  color: var(--pagination-text, #1e293b);
+}
+
+.pagination :deep(.el-pager li.active) {
+  background: var(--pagination-active-bg, #2563eb);
+  color: var(--pagination-active-text, #fff);
+  border-color: var(--pagination-active-bg, #2563eb);
+}
+
+.pagination :deep(.btn-prev:disabled),
+.pagination :deep(.btn-next:disabled) {
+  color: var(--pagination-disabled-text, #94a3b8);
+}
+
+.pagination :deep(.el-pagination__sizes .el-input__inner) {
+  border-color: var(--pagination-border, #e5eaf3);
+  color: var(--pagination-text, #1e293b);
+}
+
+.pagination :deep(.el-pagination__sizes .el-input__inner:hover) {
+  border-color: var(--pagination-active-bg, #2563eb);
+}
+
+.pagination :deep(.el-select .el-input.is-focus .el-input__inner) {
+  border-color: var(--pagination-active-bg, #2563eb);
+}
+.with-tree-sidebar {
+  display: flex;
+  min-height: 100vh;
+  width: 100vw;
+  background: var(--body-color, #f8fafb);
+}
+
+.article-list-bg {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
 .article-list-bg {
   min-height: 100vh;
   background: var(--body-color, #f8fafb);
