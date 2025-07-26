@@ -25,31 +25,27 @@
 import { ref, onMounted } from 'vue'
 import { NButton, NCard, NH2, NStatistic, NGrid, NGi, NSpace } from 'naive-ui'
 
+// 你自己封装的 API
+import { fetchArticleList } from '@/api/article'
+import { getCategoryTree } from '@/api/category'
+import { getTags } from '@/api/tag'
+
 const stat = ref({ articles: 0, categories: 0, tags: 0 })
 
 onMounted(async () => {
   try {
     const [a, c, t] = await Promise.all([
-      fetch('/api/articles?pageSize=1').then(checkJSON).then(r => r.total || 0),
-      fetch('/api/categories').then(checkJSON).then(list => Array.isArray(list) ? list.length : 0),
-      fetch('/api/tags').then(checkJSON).then(list => Array.isArray(list) ? list.length : 0)
+      fetchArticleList({ pageSize: 1 }).then(r => r.total || 0),
+      getCategoryTree().then(list => Array.isArray(list) ? list.length : 0),
+      getTags({ page: 1, pageSize: 1 }).then(res => res.total || 0)
     ])
     stat.value = { articles: a, categories: c, tags: t }
   } catch (e) {
-    window.$message?.error?.('部分统计接口出错：' + e.message)
+    window.$message?.error?.('部分统计接口出错：' + (e.message || e))
   }
 })
-function checkJSON(res) {
-  if (!res.ok) throw new Error('网络错误：' + res.status)
-  return res.text().then(text => {
-    try {
-      return JSON.parse(text)
-    } catch {
-      throw new Error('接口返回非JSON，内容为：' + text.slice(0, 80))
-    }
-  })
-}
 </script>
+
 <style scoped>
 .admin-dashboard { padding: 2.2em 2em 2em; }
 .mb-8 { margin-bottom: 2em; }

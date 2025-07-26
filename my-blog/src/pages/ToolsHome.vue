@@ -124,7 +124,7 @@ const currentTools = computed(() => {
 
 <style scoped>
 .tool-bg {
-  min-height: 100vh;
+   min-height: 80vh;
   background: var(--body-color, #f8fafb);
   display: flex;
   justify-content: center;

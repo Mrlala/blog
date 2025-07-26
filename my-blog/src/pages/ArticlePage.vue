@@ -1,16 +1,28 @@
 <template>
   <div class="article-page-bg">
     <div class="article-page">
-      <div class="article-actions">
-        <!-- 只有登录后才显示编辑按钮 -->
-        <EditButton v-if="isLoggedIn()" @click="editArticle" />
+      <!-- 返回主页按钮 -->
+      <div class="article-header">
+        <button class="go-home-btn" @click="goHome">
+          <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" fill="none">
+            <path d="M8 12h8M8 12l-3.5-3.5M8 12l3.5 3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+          返回首页
+        </button>
       </div>
+
       <ErrorMessage v-if="error" :message="error" />
       <ArticleSkeleton v-else-if="loading" />
+
       <template v-else>
+        <ArticleTitle :title="articleTitle" />
+        <ArticleMetaInline :category="categoryName" :date="articleDate" :tags="articleTags" />
+
+
+
+        <div v-if="summary" class="article-summary">{{ summary }}</div>
         <div class="article-md-preview">
-          <ArticleTitle :title="articleTitle" />
-          <ArticleDate :date="articleDate" />
           <MdPreview :modelValue="markdownContent" :theme="theme" />
         </div>
       </template>
@@ -21,143 +33,177 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import EditButton from '@/components/article/EditButton.vue'
 import ErrorMessage from '@/components/article/ErrorMessage.vue'
 import ArticleSkeleton from '@/components/article/ArticleSkeleton.vue'
 import ArticleTitle from '@/components/article/ArticleContent/ArticleTitle.vue'
-import ArticleDate from '@/components/article/ArticleContent/ArticleDate.vue'
+import ArticleMetaInline from '@/components/article/ArticleContent/ArticleMetaInline.vue'
 import { MdPreview } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
-// ===== 新增权限控制工具 =====
-import { isLoggedIn } from '@/utils/auth'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
+// API 封装
+import { fetchArticle } from '@/api/article'
+
 const router = useRouter()
 const route = useRoute()
+
 const loading = ref(true)
 const error = ref('')
 const markdownContent = ref('')
 const articleTitle = ref('')
 const articleDate = ref('')
+const summary = ref('')
+const articleTags = ref([])
+const categoryName = ref('')
 
-// 主题变量，默认从 localStorage 读取
 const theme = ref(localStorage.getItem('naive-theme') || 'light')
-
 function onThemeChange(event) {
   const newTheme = event.detail
   if (newTheme === 'light' || newTheme === 'dark') {
     theme.value = newTheme
   }
 }
-
-const editArticle = () => {
-  router.push({ path: '/write', query: { edit: route.params.id } })
+function goHome() {
+  router.push({ path: '/' })
+}
+// 标签默认颜色
+function defaultTagColor(name) {
+  const colorList = ['#3b82f6', '#10b981', '#f59e42', '#a78bfa', '#ef4444', '#fbbf24']
+  if (!name) return '#64748b'
+  const idx = (name.charCodeAt(0) + name.length) % colorList.length
+  return colorList[idx]
 }
 
 onBeforeUnmount(() => {
   window.removeEventListener('naive-theme-change', onThemeChange)
 })
-
 onMounted(async () => {
   window.addEventListener('naive-theme-change', onThemeChange)
-  const id = route.params.id
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch(`${API_BASE_URL}/api/articles/${id}`)
-    if (!res.ok) throw new Error('找不到文章')
-    const data = await res.json()
+    const id = route.params.id
+    const data = await fetchArticle(id)
     articleTitle.value = data.title
-    articleDate.value = data.created_at ? data.created_at.slice(0, 10) : ''
+    articleDate.value = data.created_at?.slice(0, 10) || ''
     markdownContent.value = data.content
+    summary.value = data.summary || ''
+    articleTags.value = Array.isArray(data.tags) ? data.tags : []
+    categoryName.value = data.category?.name || ''
   } catch (e) {
     error.value = e.message
+  } finally {
+    loading.value = false
   }
-  loading.value = false
 })
 </script>
 
-<style scoped>
-:deep(.md-editor-preview-wrapper),
-:deep(.md-editor-preview),
-:deep(.md-editor-content) {
-  background: var(--article-bg, transparent) !important;
-}
 
+<style scoped>
 .article-page-bg {
   min-height: 100vh;
   background: var(--body-color, #f8fafb);
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  transition: background 0.35s;
+  padding: 3.2em 1em 3em 1em;
+  transition: background 0.3s;
 }
 
 .article-page {
   width: 100%;
-  max-width: 980px;
-  margin: 2.5em auto 2em;
-  padding: 2.6em 0 3.2em 0;
+  max-width: 820px;
   background: var(--article-bg, #fff);
-  color: var(--article-text-color, #232a3a);
-  border-radius: var(--article-radius, 2em);
-  box-shadow: var(--article-shadow, 0 8px 32px rgba(60, 60, 110, 0.08));
-  min-height: 66vh;
-  transition: background 0.35s, color 0.35s;
-  position: relative;
+  border-radius: 1.6em;
+  box-shadow: 0 4px 32px 0 rgba(47, 92, 150, 0.10);
+  padding: 2.6em 2.3em 2.2em 2.3em;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  gap: 1.5em;
+  position: relative;
+  animation: fadein 0.6s cubic-bezier(.77, .13, .17, .87);
+
 }
 
-.article-actions {
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateY(35px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.article-header {
   display: flex;
-  gap: 1em;
-  margin-bottom: 1.3em;
+  justify-content: flex-start;
   align-items: center;
-  padding: 0 2.2em;
+  margin-bottom: 1.1em;
+}
+
+.go-home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  background: linear-gradient(95deg, #93cafc 0%, #406ff2 100%);
+  border: none;
+  color: #fff;
+  border-radius: 2em;
+  font-size: 1.05em;
+  padding: 0.4em 1.5em 0.4em 1em;
+  font-weight: 600;
+  box-shadow: 0 1px 7px rgba(68, 126, 255, 0.13);
+  cursor: pointer;
+  letter-spacing: .01em;
+  transition: box-shadow 0.16s, background 0.18s, filter 0.12s;
+}
+
+.go-home-btn:hover {
+  filter: brightness(1.07);
+  box-shadow: 0 4px 16px rgba(68, 126, 255, 0.22);
+}
+
+.article-category {
+  font-size: 1em;
+  font-weight: bold;
+  color: #406ff2;
+  background: #e8f0ff;
+  border-radius: 1.1em;
+  padding: 0.15em 1.3em;
+  letter-spacing: 0.03em;
+  box-shadow: 0 1px 6px rgba(50, 80, 160, 0.05);
+}
+
+.article-summary {
+  font-size: 1.13em;
+  color: #444a66;
+  margin-bottom: 1.3em;
+  background: #f6fafd;
+  border-left: 4px solid #4e8ef7;
+  padding: 0.9em 1.2em;
+  border-radius: 0.9em;
+  box-shadow: 0 2px 9px rgba(50, 90, 180, 0.07);
 }
 
 .article-md-preview {
-  flex: 1 1 auto;
-  width: 100%;
-  padding: 0 2.2em;
-
-  box-sizing: border-box;
-}
-
-.md-editor-preview {
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0;
-  font-size: 1.1em;
-  line-height: 1.72;
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
+  line-height: 1.74;
+  font-size: 1.09em;
+  color: var(--body-text, #212f47);
+  background: var(--input-bg, #fff);
+  border-radius: 0.8em;
+  padding: 1.3em 1.1em 1.1em 1.1em;
+  box-shadow: 0 1px 10px rgba(50, 80, 160, 0.04);
+  transition: background 0.3s, color 0.3s;
   word-break: break-word;
 }
 
-@media (max-width: 1024px) {
-  .article-page {
-    max-width: 100%;
-    border-radius: 0;
-  }
+:deep(.md-editor  ) {
+  --md-bk-color: var(--article-bg, #fff);
 
-  .article-md-preview,
-  .article-actions {
-    padding: 0 1em;
-  }
 }
-
-@media (max-width: 700px) {
-  .article-md-preview,
-  .article-actions {
-    padding: 0 0.3em;
-  }
-
-  .article-page {
-    padding: 1em 0 2em 0;
-  }
+:deep(.md-editor .md-editor-preview) {
+  --md-theme-color: var(--article-date-color, #1e293b);
 }
 </style>
+<!-- --article-date-color -->

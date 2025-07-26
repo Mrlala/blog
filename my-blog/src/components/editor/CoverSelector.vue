@@ -27,6 +27,9 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+// 用你的上传API
+import { uploadImage } from '@/api/upload'
+
 const props = defineProps({
   modelValue: String,
   defaultCovers: {
@@ -41,9 +44,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue'])
 
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:3001'
 const uploading = ref(false)
-const fileInput = ref(null)
 
 function choose(url) {
   emit('update:modelValue', url)
@@ -53,23 +54,12 @@ async function onFile(e) {
   const file = e.target.files && e.target.files[0]
   if (!file) return
   uploading.value = true
-  const formData = new FormData()
-  formData.append('file', file)
   try {
-    const res = await fetch(`${API_BASE_URL}/api/upload`, {
-      method: 'POST',
-      body: formData
-    })
-    const data = await res.json()
-    if (data.url) {
-      emit('update:modelValue', data.url)
-      // 上传完清空 input，可以连续上传同一张
-      e.target.value = ''
-    } else {
-      alert(data.error || '上传失败')
-    }
+    const url = await uploadImage(file)
+    emit('update:modelValue', url)
+    e.target.value = ''
   } catch (err) {
-    alert('上传异常')
+    alert(err?.message || '上传失败')
   }
   uploading.value = false
 }
@@ -78,6 +68,7 @@ const isCustom = computed(() =>
   props.modelValue && !props.defaultCovers.includes(props.modelValue)
 )
 </script>
+
 
 
 <style scoped>
