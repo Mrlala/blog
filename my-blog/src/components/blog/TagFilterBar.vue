@@ -3,11 +3,12 @@
     <span class="filter-label">标签筛选：</span>
     <span
       v-for="t in tags"
-      :key="t"
+      :key="t.id"
       class="tag-chip"
-      :class="{ active: t === modelValue }"
-      @click="$emit('update:modelValue', t)"
-    >{{ t }}</span>
+      :class="{ active: t.id === modelValue }"
+      :style="{ background: t.id === modelValue ? (t.color || '#2563eb') : '', color: t.id === modelValue ? '#fff' : '' }"
+      @click="$emit('update:modelValue', t.id)"
+    >{{ t.name }}</span>
     <span
       v-if="modelValue"
       class="tag-clear"
@@ -19,9 +20,10 @@
 <script setup>
 defineProps({
   tags: { type: Array, default: () => [] },
-  modelValue: String,
+  modelValue: [String, Number],
 });
 </script>
+
 
 <style scoped>
 .filter-bar {

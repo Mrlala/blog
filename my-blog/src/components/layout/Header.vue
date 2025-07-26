@@ -10,13 +10,10 @@
         <router-link to="/about" class="nav-link">关于</router-link>
         <router-link to="/archives" class="nav-link">归档</router-link>
         <router-link to="/tools" class="nav-link">小工具</router-link>
+        <router-link to="/calendar" class="nav-link">日程</router-link>
       </nav>
       <ThemeSwitcher />
-      <button
-        v-if="isLoggedIn()"
-        class="logout-btn"
-        @click="logout"
-      >退出</button>
+      <button v-if="isLoggedIn()" class="logout-btn" @click="logout">退出</button>
     </div>
   </header>
 </template>
@@ -38,7 +35,8 @@ function logout() {
 .header {
   background: var(--header-bg-color, #fff);
   color: var(--header-text-color, #1e293b);
-  padding: 0.4rem 1.5rem;   /* 上下padding变小！ */
+  padding: 0.4rem 1.5rem;
+  /* 上下padding变小！ */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -48,6 +46,7 @@ function logout() {
   z-index: 999;
   transition: background 0.32s, color 0.32s;
 }
+
 .container {
   max-width: 1200px;
   width: 100%;
@@ -56,20 +55,24 @@ function logout() {
   gap: 1.2rem;
   flex-wrap: wrap;
 }
+
 .logo-row {
   display: flex;
   align-items: baseline;
   gap: 0.8em;
   flex-shrink: 0;
 }
+
 .logo {
   font-weight: 900;
-  font-size: 1.2rem;  /* 字体略小 */
+  font-size: 1.2rem;
+  /* 字体略小 */
   user-select: none;
   letter-spacing: 0.04em;
   margin: 0;
   padding: 0;
 }
+
 .sub-title {
   font-size: 0.97em;
   font-weight: 500;
@@ -83,6 +86,7 @@ function logout() {
   background-clip: text;
   white-space: nowrap;
 }
+
 .nav {
   display: flex;
   gap: 1.1rem;
@@ -90,6 +94,7 @@ function logout() {
   justify-content: center;
   flex-wrap: wrap;
 }
+
 .nav-link {
   color: inherit;
   text-decoration: none;
@@ -99,6 +104,7 @@ function logout() {
   border-radius: 6px;
   transition: background-color 0.25s, color 0.25s;
 }
+
 .nav-link.router-link-active,
 .nav-link:hover,
 .nav-link:focus {
@@ -106,6 +112,7 @@ function logout() {
   color: var(--header-bg-color, #fff);
   outline: none;
 }
+
 .logout-btn {
   margin-left: 1.1rem;
   background: var(--btn-bg, linear-gradient(90deg, #2563eb, #60a5fa));
@@ -119,6 +126,7 @@ function logout() {
   box-shadow: 0 2px 8px #60a5fa13;
   transition: background 0.22s, color 0.18s, transform 0.13s;
 }
+
 .logout-btn:hover {
   background: var(--btn-hover-bg, linear-gradient(90deg, #1e40af, #3b82f6));
   color: var(--btn-hover-text, #fff);

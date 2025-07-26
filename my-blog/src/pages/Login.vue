@@ -32,8 +32,9 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { setToken, isLoggedIn } from '@/utils/auth'
+// 用 axios 实例
+import axios from '@/api/axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
 const username = ref('')
 const password = ref('')
 const error = ref('')
@@ -48,24 +49,23 @@ async function login() {
   error.value = ''
   loading.value = true
   try {
-    const res = await fetch(`${API_BASE_URL}/api/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: username.value, password: password.value })
+    const res = await axios.post('/api/login', {
+      username: username.value,
+      password: password.value
     })
-    const data = await res.json()
-    if (res.ok && data.token) {
-      setToken(data.token)
+    if (res.data && res.data.token) {
+      setToken(res.data.token)
       router.replace('/')
     } else {
-      error.value = data.error || '登录失败'
+      error.value = res.data?.error || '登录失败'
     }
   } catch (e) {
-    error.value = e.message
+    error.value = e.response?.data?.error || e.message || '登录异常'
   }
   loading.value = false
 }
 </script>
+
 
 <style scoped>
 .login-bg {

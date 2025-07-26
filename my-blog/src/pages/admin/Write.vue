@@ -1,11 +1,23 @@
 <template>
   <div class="write-single-col">
     <n-card class="editor-pane" :bordered="false" size="large">
-      <TitleInput v-model="title" />
-      <CoverSelectBar v-model="coverUrl" />
-      <TagInput v-model="tags" :max="6" class="mb-block" />
-      <SummaryInput v-model="summary" class="mb-block" />
+      <!-- 标题输入 -->
+      <TitleInput v-model="title" class="mb-block" />
+      <!-- 分类选择（你也可以单独抽 CategorySelector 组件） -->
+      <n-form-item label="分类" class="mb-block">
+        <n-select v-model:value="categoryId" :options="categoryOptions" :loading="categoryLoading" placeholder="请选择分类"
+          filterable clearable size="large" style="width:320px" />
+      </n-form-item>
+      <!-- 标签选择器 -->
+      <n-form-item label="标签" class="mb-block">
+        <TagSelector v-model="tags" />
+      </n-form-item>
 
+      <!-- 摘要 -->
+      <SummaryInput v-model="summary" class="mb-block" />
+      <!-- 封面选择 -->
+      <CoverSelector v-model="coverUrl" class="mb-block" />
+      <!-- Markdown编辑器 -->
       <MdEditor v-model="content" :theme="theme" style="height: 420px" :show-catalog="true" @onUploadImg="onUploadImage"
         class="mb-block" />
 
@@ -23,18 +35,20 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { NButton, NCard, NAlert, NSpace } from 'naive-ui'
-import TagInput from '@/components/editor/TagInput.vue'
 import TitleInput from '@/components/editor/TitleInput.vue'
 import SummaryInput from '@/components/editor/SummaryInput.vue'
-import CoverSelectBar from '@/components/editor/CoverSelector.vue'
-import { useDraft } from '@/composables/useDraft.js'
+import CoverSelector from '@/components/editor/CoverSelector.vue'
+import TagSelector from '@/components/editor/TagSelector.vue'
 import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001'
+// 接口
+import { addArticle, updateArticle, fetchArticle } from '@/api/article'
+import { getCategoryTree } from '@/api/category'
+import { uploadImage } from '@/api/upload'
+
 const router = useRouter()
 const route = useRoute()
 
@@ -43,6 +57,7 @@ const content = ref('')
 const tags = ref([])
 const summary = ref('')
 const coverUrl = ref('')
+const categoryId = ref(null)
 const saving = ref(false)
 const msg = ref('')
 const msgType = ref('success')
@@ -51,6 +66,30 @@ const isEdit = ref(false)
 const articleId = ref('')
 
 const theme = ref(localStorage.getItem('naive-theme') || 'light')
+
+// 分类下拉
+const categoryOptions = ref([])
+const categoryLoading = ref(false)
+async function fetchCategories() {
+  categoryLoading.value = true
+  try {
+    const tree = await getCategoryTree()
+    function flatten(nodes, prefix = '') {
+      let arr = []
+      for (const n of nodes) {
+        const label = prefix ? prefix + ' / ' + n.name : n.name
+        arr.push({ label, value: n.id })
+        if (n.children?.length) arr = arr.concat(flatten(n.children, label))
+      }
+      return arr
+    }
+    categoryOptions.value = flatten(tree)
+  } finally {
+    categoryLoading.value = false
+  }
+}
+
+// 切换主题（兼容 md-editor-v3）
 function onThemeChange(event) {
   const newTheme = event.detail
   if (newTheme === 'light' || newTheme === 'dark') {
@@ -60,50 +99,31 @@ function onThemeChange(event) {
 
 onMounted(async () => {
   window.addEventListener('naive-theme-change', onThemeChange)
-  const id = route.query.edit
+  await fetchCategories()
+  // 如果是编辑，回填内容
+  const id = route.query.edit || route.query.id
   if (id) {
     isEdit.value = true
     articleId.value = id
-    const res = await fetch(`${API_BASE_URL}/api/articles/${id}`)
-    const data = await res.json()
+    const data = await fetchArticle(id)
     if (data && data.id) {
       title.value = data.title
-      tags.value = data.tags || []
+      tags.value = (data.tags || []).map(t => t.name)
       content.value = data.content
       summary.value = data.summary || ''
       coverUrl.value = data.cover || ''
-      showDraftBar.value = false
+      categoryId.value = data.category?.id ? Number(data.category.id) : null
     }
-  } else {
-    showDraftBar.value = load()
   }
 })
 
-onBeforeUnmount(() => {
-  window.removeEventListener('naive-theme-change', onThemeChange)
-})
-
-const { draft, load, save, clear } = useDraft()
-const showDraftBar = ref(false)
-
-watch([title, content, tags], ([t, c, tg]) => {
-  save(t, c, tg)
-  showDraftBar.value = !!t || !!c || (tg && tg.length)
-})
-
-
-function clearDraft() {
-  clear()
-  showDraftBar.value = false
-}
-
 const canSave = computed(() =>
-  title.value.trim() && content.value.trim() && title.value.length <= 60
+  title.value.trim() && content.value.trim() && title.value.length <= 60 && !!categoryId.value
 )
 
 async function saveArticle() {
   if (!canSave.value) {
-    msg.value = '标题或内容不合法'
+    msg.value = '请填写标题、内容、分类'
     msgType.value = 'error'
     msgShow.value = true
     setTimeout(() => (msgShow.value = false), 1800)
@@ -115,32 +135,21 @@ async function saveArticle() {
       title: title.value,
       summary: summary.value,
       content: content.value,
-      tags: tags.value,
-      cover: coverUrl.value
+      tags: tags.value,     // 直接传名字数组
+      cover: coverUrl.value,
+      category_id: categoryId.value ? Number(categoryId.value) : null
     }
-    let url = `${API_BASE_URL}/api/articles`
-    let method = 'POST'
+    let data
     if (isEdit.value && articleId.value) {
-      url += '/' + articleId.value
-      method = 'PUT'
+      data = await updateArticle(articleId.value, payload)
+    } else {
+      data = await addArticle(payload)
     }
-    const token = localStorage.getItem('token')
-    const res = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + (token || '')
-      },
-      body: JSON.stringify(payload)
-    })
-
-    const data = await res.json()
     if (data.id) {
-      clearDraft()
       msg.value = '保存成功！'
       msgType.value = 'success'
       msgShow.value = true
-      setTimeout(() => router.push('/'), 800)
+      setTimeout(() => router.push('/admin/article'), 800)
     } else {
       msg.value = data.error || '保存失败'
       msgType.value = 'error'
@@ -153,29 +162,20 @@ async function saveArticle() {
   }
   saving.value = false
 }
+
+// 图片上传
 async function onUploadImage(files, callback) {
-  const res = await Promise.all(
-    Array.from(files).map(async (file) => {
-      const formData = new FormData();
-      formData.append('file', file);
-      const token = localStorage.getItem('token')
-      const resp = await fetch(`${API_BASE_URL}/api/upload`, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Authorization': 'Bearer ' + (token || '')
-        }
-      });
-
-      const data = await resp.json();
-      return data.url;
-    })
-  );
-  console.log(res)
-  callback(res); // 官方推荐，传图片url数组
+  try {
+    const urls = await Promise.all(
+      Array.from(files).map(file => uploadImage(file))
+    )
+    callback(urls)
+  } catch (e) {
+    callback([])
+  }
 }
-
 </script>
+
 
 <style scoped>
 .write-single-col {
@@ -198,12 +198,9 @@ async function onUploadImage(files, callback) {
   height: auto;
 }
 
-/* 编辑状态背景 */
 :deep(.md-editor) {
   background: var(--article-bg, #fff) !important;
 }
-
-/* 预览状态背景 */
 
 :deep(.md-editor-preview-wrapper),
 :deep(.md-editor-preview),
@@ -214,14 +211,13 @@ async function onUploadImage(files, callback) {
 :deep(.md-editor-toolbar-wrapper) {
   background: var(--input-bg, #fff) !important;
   border: 1px solid var(--input-border);
-
 }
 
 :deep(.md-editor) {
   border: 1px solid var(--input-border);
   --md-color: #8594ac;
   --md-bk-color: var(--input-bg, #fff);
-  --md-scrollbar-bg-color: #425070
+  --md-scrollbar-bg-color: #425070;
 }
 
 :deep(.md-editor-footer) {

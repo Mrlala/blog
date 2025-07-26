@@ -6,21 +6,19 @@ import articlesRouter from './routes/articles.js'
 import categoriesRouter from './routes/categories.js'
 import tagsRouter from './routes/tags.js'
 import uploadRouter from './routes/upload.js'
+import calendarTasksRouter from './routes/calendarTasks.js'  // 新增这一行
 import { signToken } from './auth.js'
 
 dotenv.config()
 
 const app = express()
 
-// CORS配置
 app.use(cors({
-  origin: 'http://localhost:5173',  // 前端页面地址
-  credentials: true                 // 允许带cookie/session
+  origin: 'http://localhost:5173',
+  credentials: true
 }))
-
 app.use(express.json())
 
-// 登录接口
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body
   if (
@@ -34,16 +32,14 @@ app.post('/api/login', (req, res) => {
   }
 })
 
-// 静态文件服务（如图片上传）
 app.use('/uploads', express.static(path.resolve('uploads')))
 
-// 注册主要路由
 app.use('/api/articles', articlesRouter)
-app.use('/api/categories', categoriesRouter)  // 分类路由
-app.use('/api/tags', tagsRouter)              // 标签路由
+app.use('/api/categories', categoriesRouter)
+app.use('/api/tags', tagsRouter)
 app.use('/api/upload', uploadRouter)
+app.use('/api/calendar-tasks', calendarTasksRouter) // 新增这一行
 
-// 404处理
 app.use((req, res) => res.status(404).json({ error: 'Not found' }))
 
 const PORT = 3001
