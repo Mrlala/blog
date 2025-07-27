@@ -17,7 +17,7 @@
 
       <template v-else>
         <ArticleTitle :title="articleTitle" />
-        <ArticleMetaInline :category="categoryName" :date="articleDate" :tags="articleTags" />
+        <ArticleMetaInline :category="categoryName" :date="articleDate" :tags="articleTags" :views="views" />
 
 
 
@@ -40,8 +40,7 @@ import ArticleMetaInline from '@/components/article/ArticleContent/ArticleMetaIn
 import { MdPreview } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
 
-// API 封装
-import { fetchArticle } from '@/api/article'
+import { fetchArticle, addArticleView } from '@/api/article'
 
 const router = useRouter()
 const route = useRoute()
@@ -54,6 +53,7 @@ const articleDate = ref('')
 const summary = ref('')
 const articleTags = ref([])
 const categoryName = ref('')
+const views = ref(0)
 
 const theme = ref(localStorage.getItem('naive-theme') || 'light')
 function onThemeChange(event) {
@@ -65,13 +65,6 @@ function onThemeChange(event) {
 function goHome() {
   router.push({ path: '/' })
 }
-// 标签默认颜色
-function defaultTagColor(name) {
-  const colorList = ['#3b82f6', '#10b981', '#f59e42', '#a78bfa', '#ef4444', '#fbbf24']
-  if (!name) return '#64748b'
-  const idx = (name.charCodeAt(0) + name.length) % colorList.length
-  return colorList[idx]
-}
 
 onBeforeUnmount(() => {
   window.removeEventListener('naive-theme-change', onThemeChange)
@@ -82,13 +75,25 @@ onMounted(async () => {
   error.value = ''
   try {
     const id = route.params.id
-    const data = await fetchArticle(id)
+
+    // 1. 先获取文章内容
+    let data = await fetchArticle(id)
     articleTitle.value = data.title
     articleDate.value = data.created_at?.slice(0, 10) || ''
     markdownContent.value = data.content
     summary.value = data.summary || ''
     articleTags.value = Array.isArray(data.tags) ? data.tags : []
     categoryName.value = data.category?.name || ''
+    views.value = data.views || 0
+
+    // 2. 浏览计数+1（不等待结果）
+    addArticleView(id).then(async res => {
+      if (res.success) {
+        // 再查一次最新views（如果你想显示最准确的实时数，否则可省略）
+        let newData = await fetchArticle(id)
+        views.value = newData.views || 0
+      }
+    })
   } catch (e) {
     error.value = e.message
   } finally {
@@ -198,10 +203,11 @@ onMounted(async () => {
   word-break: break-word;
 }
 
-:deep(.md-editor  ) {
+:deep(.md-editor) {
   --md-bk-color: var(--article-bg, #fff);
 
 }
+
 :deep(.md-editor .md-editor-preview) {
   --md-theme-color: var(--article-date-color, #1e293b);
 }

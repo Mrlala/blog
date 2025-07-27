@@ -65,7 +65,7 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   // 管理后台页面都需要登录
   if (to.path.startsWith('/admin') && !isLoggedIn()) {
-    next('/admin/login')
+    next('/login')
   } else if (to.path === '/admin/write' && !isLoggedIn()) {
     next('/admin/article')
   } else {

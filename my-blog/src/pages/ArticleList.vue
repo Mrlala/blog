@@ -8,7 +8,7 @@ import CategoryTreeSidebar from '@/components/blog/CategoryTreeSidebar.vue'
 import { NPagination } from 'naive-ui'
 
 // API 封装
-import { fetchArticleList } from '@/api/article'
+import { fetchPublishedArticles } from '@/api/article'
 import { getCategoryTree } from '@/api/category'
 
 /** 列表数据相关 **/
@@ -63,14 +63,15 @@ async function fetchList() {
   try {
     const params = {
       page: page.value,
-      pageSize: pageSize.value
+      pageSize: pageSize.value,
     }
     if (keyword.value.trim()) params.keyword = keyword.value.trim()
     if (selectedTag.value) params.tag = selectedTag.value
     if (selectedCategory.value) params.category_id = selectedCategory.value
     if (selectedSub.value) params.category_id = selectedSub.value
 
-    const data = await fetchArticleList(params)
+    const data = await fetchPublishedArticles(params)
+
     articles.value = Array.isArray(data.list) ? data.list : []
     total.value = data.total || 0
   } catch (e) {
@@ -127,8 +128,9 @@ const allTags = computed(() => {
       <div class="article-list-card">
         <!-- 搜索 + 二级分类 -->
 
-        <SearchBar v-model="keyword" :sub-categories="subCategories" :sub-category="selectedSub" @search="handleSearch"
-          @update:subCategory="handleSubChange" />
+        <SearchBar v-model="keyword" :sub-categories="subCategories" :sub-category="String(selectedSub)"
+          @search="handleSearch" @update:subCategory="handleSubChange" />
+
 
         <!-- 标签筛选 -->
         <TagFilterBar :tags="allTags" v-model="selectedTag" tag-class="tag-chip" />
@@ -141,7 +143,9 @@ const allTags = computed(() => {
             <div v-if="!articles.length" class="no-article">暂无匹配文章</div>
             <div class="article-list">
               <ArticleCard v-for="a in articles" :key="a.id" :title="a.title" :abstract="a.summary" :cover="a.cover"
-                :tags="a.tags" :time="a.created_at" :default-cover="defaultCover" @click="goDetail(a.id)" />
+                :tags="a.tags" :time="a.created_at" :views="a.views" :default-cover="defaultCover"
+                @click="goDetail(a.id)" />
+
               <div v-if="loading && articles.length" class="loading-mask">
                 <span class="spinner"></span>
               </div>

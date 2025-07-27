@@ -1,15 +1,28 @@
 <template>
   <div class="article-meta-inline">
     <div class="meta-left">
-
+      <!-- 日期 -->
       <span class="article-date">
-        <svg width="1em" height="1em" style="margin-right: 0.25em;opacity:0.85" fill="none" viewBox="0 0 24 24">
+        <svg width="1em" height="1em" style="margin-right: 0.25em; opacity: 0.85" fill="none" viewBox="0 0 24 24">
           <path d="M7 3v2m10-2v2M4.5 7h15M6 21h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"
             stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
         {{ date }}
       </span>
+
+      <!-- 浏览数 -->
+      <span class="article-views" v-if="views !== undefined">
+        <svg width="1em" height="1em" style="margin-right: 0.25em; opacity: 0.85" fill="none" viewBox="0 0 24 24">
+          <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" stroke="currentColor" stroke-width="1.3"
+            stroke-linecap="round" stroke-linejoin="round" />
+          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.3"
+            stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        {{ views }} 浏览
+      </span>
     </div>
+
+    <!-- 标签 -->
     <div class="meta-tags" v-if="tags && tags.length">
       <span v-for="t in tags" :key="t.id || t.name" class="article-tag"
         :style="{ background: t.color || defaultTagColor(t.name) }">{{ t.name }}</span>
@@ -25,7 +38,9 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  views: Number  // 👈 新增浏览数
 })
+
 function defaultTagColor(name) {
   const colorList = ['#3b82f6', '#10b981', '#f59e42', '#a78bfa', '#ef4444', '#fbbf24']
   if (!name) return '#64748b'
@@ -52,16 +67,8 @@ function defaultTagColor(name) {
   color: #8d94a7;
 }
 
-.article-category {
-  font-weight: bold;
-  color: #406ff2;
-  background: #e8f0ff;
-  border-radius: 1em;
-  padding: 0.15em 1.1em;
-  letter-spacing: 0.03em;
-}
-
-.article-date {
+.article-date,
+.article-views {
   display: flex;
   align-items: center;
   color: var(--article-date-color, #888);

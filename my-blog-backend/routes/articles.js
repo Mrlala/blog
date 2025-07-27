@@ -47,25 +47,80 @@ async function ensureTagsExist(client, tagNames) {
   return allRows.rows.map(t => t.id)
 }
 
-// 查询文章列表（分页、筛选、带标签和分类名）
+// 递归查所有子分类 id（含自己）
+async function getAllSubCategoryIds(categoryId) {
+  const result = await pool.query(`
+    WITH RECURSIVE sub_categories AS (
+      SELECT id FROM categories WHERE id = $1
+      UNION ALL
+      SELECT c.id FROM categories c
+      INNER JOIN sub_categories sc ON c.parent_id = sc.id
+    )
+    SELECT id FROM sub_categories
+  `, [categoryId])
+  return result.rows.map(r => r.id)
+}
+
+// 查询文章列表（分页、筛选、带标签和分类名，支持分类树递归筛选）
 router.get('/', async (req, res) => {
   try {
-    const { keyword, tag, category_id, page = 1, pageSize = 10 } = req.query
+    const {
+      keyword,
+      tag,
+      category_id,
+      page = 1,
+      pageSize = 10,
+      sort,
+      status // 新增：文章状态筛选
+    } = req.query
+
     let where = []
     let params = []
-    let sql = 'SELECT * FROM articles'
 
+    // 处理状态筛选
+    if (status) {
+      where.push(`status = $${params.length + 1}`)
+      params.push(status)
+    } else {
+      // 默认过滤下架文章
+      where.push(`status != 'offline'`)
+    }
+
+    // 关键词
     if (keyword) {
       where.push(`(title ILIKE $${params.length + 1} OR summary ILIKE $${params.length + 1})`)
       params.push(`%${keyword}%`)
     }
+
+    // 分类递归筛选
     if (category_id) {
-      where.push(`category_id = $${params.length + 1}`)
-      params.push(category_id)
+      const catIds = await getAllSubCategoryIds(category_id)
+      if (catIds.length) {
+        where.push(`category_id = ANY($${params.length + 1})`)
+        params.push(catIds)
+      }
     }
 
-    if (where.length) sql += ' WHERE ' + where.join(' AND ')
-    sql += ' ORDER BY created_at DESC'
+    // 排序
+    let orderSql = 'ORDER BY created_at DESC'
+    if (sort === 'views_desc') {
+      orderSql = 'ORDER BY views DESC'
+    } else if (sort === 'views_asc') {
+      orderSql = 'ORDER BY views ASC'
+    } else if (sort === 'updated_at_desc') {
+      orderSql = 'ORDER BY updated_at DESC'
+    } else if (sort === 'updated_at_asc') {
+      orderSql = 'ORDER BY updated_at ASC'
+    } else if (sort === 'created_at_asc') {
+      orderSql = 'ORDER BY created_at ASC'
+    }
+
+    // 拼接查询条件
+    let sql = 'SELECT * FROM articles'
+    if (where.length) {
+      sql += ' WHERE ' + where.join(' AND ')
+    }
+    sql += ' ' + orderSql
 
     // 统计总数
     let countSql = 'SELECT COUNT(*) FROM articles'
@@ -77,18 +132,20 @@ router.get('/', async (req, res) => {
     const pageInt = Math.max(1, parseInt(page))
     const pageSizeInt = Math.max(1, parseInt(pageSize))
     const offset = (pageInt - 1) * pageSizeInt
+
     sql += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
     params.push(pageSizeInt, offset)
 
-    // 查文章
     const result = await pool.query(sql, params)
+
+    // 查询标签和分类，同时做tag筛选
     const list = await Promise.all(result.rows.map(async article => {
       let tags = await getTagsByArticleId(article.id)
       let category = await getCategoryById(article.category_id)
-      // tag筛选
       if (tag && !tags.find(t => String(t.id) === String(tag))) return null
       return { ...article, tags, category }
     }))
+
     res.json({
       list: list.filter(Boolean),
       total,
@@ -100,6 +157,8 @@ router.get('/', async (req, res) => {
     res.status(500).json({ error: e.message })
   }
 })
+
+
 
 // 获取单篇文章（带标签和分类）
 router.get('/:id', async (req, res) => {
@@ -200,6 +259,70 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     res.json({ success: true })
   } catch (e) {
     console.error('删除文章失败:', e)
+    res.status(500).json({ error: e.message })
+  }
+})
+// 仅需要写一次，作用于全文件
+const lastViewMap = new Map()
+
+// routes/articles.js 里 POST /:id/view 接口里
+router.post('/:id/view', async (req, res) => {
+  const { id } = req.params
+
+  // 获取 ip
+  const rawIp = req.headers['x-forwarded-for'] || req.ip || 'unknown'
+  const ip = rawIp.split(',')[0].trim()
+
+  // 从前端 body 获取 user_agent, session_id, referer（可选）
+  // 前端应主动传这几个字段，没有就自动 fallback
+  const user_agent = req.body.user_agent || req.headers['user-agent'] || ''
+  const session_id = req.body.session_id || null
+  const referer = req.body.referer || req.headers['referer'] || null
+
+  // 防刷
+  const key = `${id}_${ip}`
+  const now = Date.now()
+  const cooldown = 10 * 60 * 1000
+  if (lastViewMap.has(key) && now - lastViewMap.get(key) < cooldown) {
+    return res.json({ success: false, reason: 'duplicate' })
+  }
+
+  try {
+    // 主表 views +1
+    await pool.query('UPDATE articles SET views = views + 1 WHERE id = $1', [id])
+
+    // 明细表插入（带全字段）
+    await pool.query(
+      `INSERT INTO article_views (article_id, created_at, ip, user_agent, session_id, referer)
+       VALUES ($1, NOW(), $2, $3, $4, $5)`,
+      [id, ip, user_agent, session_id, referer]
+    )
+
+    lastViewMap.set(key, now)
+    res.json({ success: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+
+
+// 修改文章状态
+router.patch('/:id/status', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { status } = req.body
+    // 仅允许指定值
+    if (!['published', 'draft', 'offline'].includes(status)) {
+      return res.status(400).json({ error: '不支持的状态' })
+    }
+    const result = await pool.query(
+      'UPDATE articles SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [status, id]
+    )
+    if (!result.rows[0]) throw new Error('未找到该文章')
+    res.json(result.rows[0])
+  } catch (e) {
     res.status(500).json({ error: e.message })
   }
 })

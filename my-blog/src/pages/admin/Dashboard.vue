@@ -1,52 +1,121 @@
 <template>
   <div class="admin-dashboard">
-    <n-h2 prefix="bar">管理后台首页</n-h2>
-    <n-grid :x-gap="24" :y-gap="16" :cols="3" class="mb-8">
-      <n-gi>
-        <n-statistic label="文章总数" :value="stat.articles"/>
-      </n-gi>
-      <n-gi>
-        <n-statistic label="分类数" :value="stat.categories"/>
-      </n-gi>
-      <n-gi>
-        <n-statistic label="标签数" :value="stat.tags"/>
-      </n-gi>
-    </n-grid>
-    <n-card title="快速入口" class="mb-8">
-      <n-space>
-        <n-button @click="$router.push('/admin/category')">分类管理</n-button>
-        <n-button @click="$router.push('/admin/tag')">标签管理</n-button>
-        <n-button @click="$router.push('/admin/article')">文章管理</n-button>
-      </n-space>
-    </n-card>
+
+    <div class="dashboard-main">
+      <!-- 左栏 -->
+      <div class="dashboard-left">
+        <stat-summary :stat="stat" class="mb-12" />
+        <quick-entry class="mb-12" />
+        <recent-article-list :articles="recentArticles" />
+      </div>
+      <!-- 右栏 -->
+      <div class="dashboard-right">
+        <n-card title="近7日阅读趋势" class="mb-12">
+          <trend-chart :data="trendData" />
+        </n-card>
+
+        <!-- 新增系统状态 -->
+        <system-status />
+      </div>
+    </div>
   </div>
 </template>
+
 <script setup>
 import { ref, onMounted } from 'vue'
-import { NButton, NCard, NH2, NStatistic, NGrid, NGi, NSpace } from 'naive-ui'
+import StatSummary from '@/components/admin/dashboard/StatSummary.vue'
+import QuickEntry from '@/components/admin/dashboard/QuickEntry.vue'
+import TrendChart from '@/components/admin/dashboard/TrendChart.vue'
+import RecentArticleList from '@/components/admin/dashboard/RecentArticleList.vue'
+import SystemStatus from '@/components/admin/dashboard/SystemStatus.vue'
 
-// 你自己封装的 API
-import { fetchArticleList } from '@/api/article'
-import { getCategoryTree } from '@/api/category'
-import { getTags } from '@/api/tag'
+import { fetchDashboardInfo } from '@/api/dashboard'
 
-const stat = ref({ articles: 0, categories: 0, tags: 0 })
+const stat = ref({ articles: 0, categories: 0, tags: 0, views: 0 })
+const trendData = ref([])
+const recentArticles = ref([])
 
 onMounted(async () => {
   try {
-    const [a, c, t] = await Promise.all([
-      fetchArticleList({ pageSize: 1 }).then(r => r.total || 0),
-      getCategoryTree().then(list => Array.isArray(list) ? list.length : 0),
-      getTags({ page: 1, pageSize: 1 }).then(res => res.total || 0)
-    ])
-    stat.value = { articles: a, categories: c, tags: t }
+    const data = await fetchDashboardInfo()
+    console.log('仪表盘数据:', data)
+    stat.value = {
+      articles: data.articles || 0,
+      categories: data.categories || 0,
+      tags: data.tags || 0,
+      views: data.views || 0
+    }
+    recentArticles.value = data.recentArticles || []
+    trendData.value = data.readingTrend || []
   } catch (e) {
-    window.$message?.error?.('部分统计接口出错：' + (e.message || e))
+    console.error('获取仪表盘数据失败', e)
   }
 })
 </script>
 
 <style scoped>
-.admin-dashboard { padding: 2.2em 2em 2em; }
-.mb-8 { margin-bottom: 2em; }
+.admin-dashboard {
+  padding: 1.2em 1em 1em;
+
+  display: flex;
+  flex-direction: column;
+  background: var(--body-color, #181c22);
+}
+
+.dashboard-main {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: center;
+  flex: 1 1 auto;
+  height: 100%;  /* 这里 */
+  overflow: hidden;
+}
+
+.dashboard-left {
+  flex: 1 1 320px;
+  min-width: 280px;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+  height: 100%;  /* 这里 */
+}
+
+.dashboard-right {
+  flex: 2 1 600px;
+  min-width: 360px;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding-left: 4px;
+  height: 100%;  /* 这里 */
+}
+
+.mb-12 {
+  margin-bottom: 0.8em !important;
+}
+
+/* 响应式调整：小屏时上下排列，自动撑开 */
+@media (max-width: 1024px) {
+  .dashboard-main {
+    flex-direction: column;
+    gap: 0.6em;
+    align-items: stretch;
+    height: auto;
+  }
+  .dashboard-left,
+  .dashboard-right {
+    max-width: 100%;
+    min-width: 0;
+    overflow: visible;
+    padding: 0;
+    height: auto; /* 移除固定高度 */
+  }
+}
+
 </style>

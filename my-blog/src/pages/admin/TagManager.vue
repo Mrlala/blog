@@ -155,8 +155,20 @@ function handleSearch() {
 
 function openAddDialog() {
   editMode.value = false
-  form.value = { id: null, name: '', color: '#61dafb', description: '' }
+  form.value = {
+    id: null,
+    name: '',
+    color: getRandomColor(),
+    description: ''
+  }
   dialogVisible.value = true
+}
+function getRandomColor() {
+  // 生成一个亮色调（避免过暗）
+  const r = Math.floor(150 + Math.random() * 100)
+  const g = Math.floor(150 + Math.random() * 100)
+  const b = Math.floor(150 + Math.random() * 100)
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
 }
 
 function edit(row) {

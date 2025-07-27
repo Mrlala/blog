@@ -4,7 +4,13 @@
       <h3 class="card-title">{{ title }}</h3>
       <div class="card-abstract">{{ abstract }}</div>
       <div class="card-meta">
-        <span class="card-time">{{ time }}</span>
+        <span class="card-time">{{ formatTime(time) }}</span>
+        <span class="card-views">
+          <svg viewBox="0 0 16 16" width="1em" height="1em" style="margin-right:2px;vertical-align:-2px;">
+            <path fill="currentColor" d="M8 3C3.58 3 1 8 1 8s2.58 5 7 5 7-5 7-5-2.58-5-7-5Zm0 8.3A3.3 3.3 0 1 1 8 4.7a3.3 3.3 0 0 1 0 6.6Zm0-5.3a2 2 0 1 0 0 4.001A2 2 0 0 0 8 6Z"/>
+          </svg>
+          {{ views || 0 }}
+        </span>
         <span class="card-tags">
           <span class="tag-chip" v-for="t in tags" :key="t.id"
             :style="{ background: t.color || '#e6eeff', color: t.color ? '#fff' : '' }">
@@ -30,9 +36,20 @@ const props = defineProps({
   cover: String,
   tags: Array,
   time: String,
+  views: Number, // 新增
   defaultCover: { type: String, default: '' }
 })
 const coverImg = props.cover || props.defaultCover
+
+function formatTime(time) {
+  if (!time) return ''
+  const date = new Date(time)
+  return date.getFullYear() + '-' +
+    String(date.getMonth() + 1).padStart(2, '0') + '-' +
+    String(date.getDate()).padStart(2, '0') + ' ' +
+    String(date.getHours()).padStart(2, '0') + ':' +
+    String(date.getMinutes()).padStart(2, '0')
+}
 </script>
 
 <style scoped>
@@ -100,6 +117,14 @@ const coverImg = props.cover || props.defaultCover
 .card-time {
   color: var(--card-time-color, #b2bccc);
   font-size: 0.96em;
+}
+
+.card-views {
+  color: #789;
+  font-size: 0.95em;
+  margin-left: 0.5em;
+  display: inline-flex;
+  align-items: center;
 }
 
 .card-tags {

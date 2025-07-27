@@ -8,6 +8,9 @@ import tagsRouter from './routes/tags.js'
 import uploadRouter from './routes/upload.js'
 import calendarTasksRouter from './routes/calendarTasks.js'  // 新增这一行
 import { signToken } from './auth.js'
+import dashboardRouter from './routes/dashboard.js'
+import systemStatusRouter from './routes/systemStatus.js'
+
 
 dotenv.config()
 
@@ -39,7 +42,8 @@ app.use('/api/categories', categoriesRouter)
 app.use('/api/tags', tagsRouter)
 app.use('/api/upload', uploadRouter)
 app.use('/api/calendar-tasks', calendarTasksRouter) // 新增这一行
-
+app.use('/api/dashboard', dashboardRouter)
+app.use('/api/system', systemStatusRouter)
 app.use((req, res) => res.status(404).json({ error: 'Not found' }))
 
 const PORT = 3001
