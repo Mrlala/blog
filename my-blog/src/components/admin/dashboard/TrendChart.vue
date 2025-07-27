@@ -45,7 +45,13 @@ const option = computed(() => {
   const values = last7days.map(date => dataMap.get(date) ?? 0)
 
   return {
-    // title removed to avoid redundancy
+
+    tooltip: {
+      trigger: 'axis'
+    },
+    xAxis: {
+      type: 'category',
+      data: last7days,
       boundaryGap: false
     },
     yAxis: {
